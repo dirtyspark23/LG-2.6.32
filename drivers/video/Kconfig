@@ -2396,6 +2396,12 @@ config FB_MSM_MDDI_NOVATEK_HVGA
 	---help---
 	  Support for MDDI NOVATEK HVGA(320x480) Panel.
 
+config FB_MSM_MDDI_NOVATEK_HITACHI_HVGA
+	bool "MDDI NOVATEK + Hitachi HVGA Panel"
+	select FB_MSM_MDDI
+	---help---
+	  Support for MDDI NOVATEK + HITACHI HVGA(320x480) Panel.
+
 config FB_MSM_PANEL_NONE
 	bool "NONE"
 	---help---

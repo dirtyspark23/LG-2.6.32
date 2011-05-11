@@ -311,14 +311,14 @@ static void mcs6000_work(struct work_struct *work)
 			}
 #ifdef LG_FW_MULTI_TOUCH
 			if(input_type == MULTI_POINT_TOUCH) {
-				mcs6000_multi_ts_event_touch(x1, y1, x2, y2, PRESSED, dev);
+				mcs6000_multi_ts_event_touch(x1, y1, x2, y2, read_buf[4], dev);
 				pre_x1 = x1;
 				pre_y1 = y1;
 				pre_x2 = x2;
 				pre_y2 = y2;
 			}
 			else if(input_type == SINGLE_POINT_TOUCH) {
-				mcs6000_multi_ts_event_touch(x1, y1, -1, -1, PRESSED, dev);
+				mcs6000_multi_ts_event_touch(x1, y1, -1, -1, read_buf[4], dev);
 				s_input_type = SINGLE_POINT_TOUCH;				
 			}
 #else
@@ -830,6 +830,7 @@ static int mcs6000_ts_probe(struct i2c_client *client, const struct i2c_device_i
 #ifdef LG_FW_MULTI_TOUCH
 	input_set_abs_params(mcs6000_ts_input, ABS_MT_POSITION_X, ts_pdata->ts_x_min, ts_pdata->ts_x_max, 0, 0);
 	input_set_abs_params(mcs6000_ts_input, ABS_MT_POSITION_Y, ts_pdata->ts_y_min, ts_pdata->ts_y_max, 0, 0);
+	input_set_abs_params(mcs6000_ts_input, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 #else	
 	input_set_abs_params(mcs6000_ts_input, ABS_X, ts_pdata->ts_x_min, ts_pdata->ts_x_max, 0, 0);
 	input_set_abs_params(mcs6000_ts_input, ABS_Y, ts_pdata->ts_y_min, ts_pdata->ts_y_max, 0, 0);
