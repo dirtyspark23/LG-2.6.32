@@ -292,18 +292,4 @@ obj-$(CONFIG_SFC) += sfc/
 
 obj-$(CONFIG_WIMAX) += wimax/
 
-# LGE_CHANGE_S 20100902 suntae.joo@lge.com
-ORG_COUNTRY=GB
-TARGET_COUNTRY=US
-TARGET_CARRIER=TMO
-
-ifeq ($(TARGET_CARRIER),TMO)
-    ifeq ($(TARGET_COUNTRY),US)
-		obj-y += kineto_gan.o
-    endif
-else ifeq ($(TARGET_CARRIER),ORG)
-    ifneq (,$(filter $(TARGET_COUNTRY),$(ORG_COUNTRY)))
-		obj-y += kineto_gan.o
-    endif
-endif
-# LGE_CHANGE_E 20100902 suntae.joo@lge.com
+obj-$(CONFIG_MACH_LGE) += kineto_gan.o
