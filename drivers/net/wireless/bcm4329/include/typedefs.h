@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999-2009, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -18,12 +18,14 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: typedefs.h,v 1.85.34.1.2.5 2009/01/27 04:09:40 Exp $
+ * $Id: typedefs.h,v 1.85.34.1.16.5 2009/11/25 02:44:20 Exp $
  */
 
 
 #ifndef _TYPEDEFS_H_
 #define _TYPEDEFS_H_
+
+
 
 #ifdef SITE_TYPEDEFS
 
@@ -32,6 +34,8 @@
 #include "site_typedefs.h"
 
 #else
+
+
 
 
 
@@ -49,6 +53,7 @@
 
 
 #endif	
+
 
 #if defined(__x86_64__)
 #define TYPEDEF_UINTPTR
@@ -199,6 +204,19 @@ typedef signed int	int32;
 typedef signed long long int64;
 #endif
 
+#ifndef TYPEDEF_CPLXSHORT
+typedef struct {
+	int16 x, y;
+} ComplexShort;
+#endif
+
+#ifndef TYPEDEF_CPLXINT
+typedef struct {
+	int32 x, y;
+} ComplexInt;
+#endif
+
+
 
 
 #ifndef TYPEDEF_FLOAT32
@@ -255,7 +273,7 @@ typedef float64 float_t;
 
 #if defined(__GNUC__)
 	#define BWL_COMPILER_GNU
-#elif defined(__CC_ARM)
+#elif defined(__CC_ARM) && __CC_ARM
 	#define BWL_COMPILER_ARMCC
 #else
 	#error "Unknown compiler!"
@@ -291,6 +309,9 @@ typedef float64 float_t;
 #undef TYPEDEF_FLOAT32
 #undef TYPEDEF_FLOAT64
 #undef TYPEDEF_FLOAT_T
+#undef TYPEDEF_CPLXSHORT
+#undef TYPEDEF_CPLXINT
+
 
 #endif 
 

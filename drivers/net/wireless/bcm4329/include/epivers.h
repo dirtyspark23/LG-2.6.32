@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 1999-2010, Broadcom Corporation
+ * Copyright (C) 1999-2009, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -29,20 +29,20 @@
 
 #define	EPI_MAJOR_VERSION	4
 
-#define	EPI_MINOR_VERSION	218
+#define	EPI_MINOR_VERSION	217
 
-#define	EPI_RC_NUMBER		223
+#define	EPI_RC_NUMBER		67
 
 #define	EPI_INCREMENTAL_NUMBER	0
 
 #define	EPI_BUILD_NUMBER	0
 
-#define	EPI_VERSION		4, 218, 223, 0
+#define	EPI_VERSION		4, 217, 67, 0
 
-#define	EPI_VERSION_NUM		0x04dadf00
+#define	EPI_VERSION_NUM		0x04d94300
 
 
-#define	EPI_VERSION_STR		"4.218.223.0"
-#define	EPI_ROUTER_VERSION_STR	"4.219.223.0"
+#define	EPI_VERSION_STR		"4.217.67.0"
+#define	EPI_ROUTER_VERSION_STR	"4.217.67.0"
 
 #endif 

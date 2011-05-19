@@ -1,9 +1,9 @@
 /*
  * Driver O/S-independent utility routines
  *
- * Copyright (C) 1999-2010, Broadcom Corporation
+ * Copyright (C) 1999-2009, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -20,7 +20,7 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmutils.c,v 1.210.4.5.2.4.6.17 2009/11/17 02:20:12 Exp $
+ * $Id: bcmutils.c,v 1.210.4.5.2.4.16.6 2009/11/25 02:44:56 Exp $
  */
 
 #include <typedefs.h>
@@ -37,7 +37,6 @@
 #if defined(BCMEXTSUP)
 #include <bcm_osl.h>
 #endif
-
 #endif /* BCMDRIVER */
 #include <bcmendian.h>
 #include <bcmdevs.h>
@@ -45,11 +44,9 @@
 #include <proto/vlan.h>
 #include <proto/bcmip.h>
 #include <proto/802.1d.h>
-#include <proto/802.11.h>
 
 
 #ifdef BCMDRIVER
-
 
 /* copy a pkt buffer chain into a buffer */
 uint
@@ -507,7 +504,6 @@ pktq_mdeq(struct pktq *pq, uint prec_bmp, int *prec_out)
 #endif /* BCMDRIVER */
 
 
-
 const unsigned char bcm_ctype[] = {
 	_BCM_C,_BCM_C,_BCM_C,_BCM_C,_BCM_C,_BCM_C,_BCM_C,_BCM_C,			/* 0-7 */
 	_BCM_C, _BCM_C|_BCM_S, _BCM_C|_BCM_S, _BCM_C|_BCM_S, _BCM_C|_BCM_S, _BCM_C|_BCM_S, _BCM_C,
@@ -584,13 +580,13 @@ bcm_strtoul(char *cp, char **endp, uint base)
 		result = result*base + value;
 		/* Detected overflow */
 		if (result < last_result && !minus)
-			return (ulong)-1;
+			return ((unsigned long) -1);
 		last_result = result;
 		cp++;
 	}
 
 	if (minus)
-		result = (ulong)(-(long)result);
+		result = (ulong)(result * -1);
 
 	if (endp)
 		*endp = (char *)cp;
@@ -671,8 +667,7 @@ bcmstrncat(char *dest, const char *src, uint size)
 * Returns:  Pointer to the next token found. NULL when no more tokens are found.
 *****************************************************************************
 */
-char *
-bcmstrtok(char **string, const char *delimiters, char *tokdelim)
+char* bcmstrtok(char **string, const char *delimiters, char *tokdelim)
 {
 	unsigned char *str;
 	unsigned long map[8];
@@ -749,8 +744,7 @@ bcmstrtok(char **string, const char *delimiters, char *tokdelim)
 *             t1 > t2, when ignoring case sensitivity.
 *****************************************************************************
 */
-int
-bcmstricmp(const char *s1, const char *s2)
+int bcmstricmp(const char *s1, const char *s2)
 {
 	char dc, sc;
 
@@ -783,8 +777,7 @@ bcmstricmp(const char *s1, const char *s2)
 *             t1 > t2, when ignoring case sensitivity.
 *****************************************************************************
 */
-int
-bcmstrnicmp(const char* s1, const char* s2, int cnt)
+int bcmstrnicmp(const char* s1, const char* s2, int cnt)
 {
 	char dc, sc;
 
@@ -819,14 +812,18 @@ bcm_ether_atoe(char *p, struct ether_addr *ea)
 	return (i == 6);
 }
 
-
 #if defined(CONFIG_USBRNDIS_RETAIL) || defined(NDIS_MINIPORT_DRIVER)
 /* registry routine buffer preparation utility functions:
  * parameter order is like strncpy, but returns count
  * of bytes copied. Minimum bytes copied is null char(1)/wchar(2)
  */
 ulong
-wchar2ascii(char *abuf, ushort *wbuf, ushort wbuflen, ulong abuflen)
+wchar2ascii(
+	char *abuf,
+	ushort *wbuf,
+	ushort wbuflen,
+	ulong abuflen
+)
 {
 	ulong copyct = 1;
 	ushort i;
@@ -897,7 +894,7 @@ prpkt(const char *msg, osl_t *osh, void *p0)
 	for (p = p0; p; p = PKTNEXT(osh, p))
 		prhex(NULL, PKTDATA(osh, p), PKTLEN(osh, p));
 }
-#endif	
+#endif 
 
 /* Takes an Ethernet frame and sets out-of-bound PKTPRIO.
  * Also updates the inplace vlan tag if requested.
@@ -1061,6 +1058,7 @@ bcm_iovar_lencheck(const bcm_iovar_t *vi, void *arg, int len, bool set)
 
 #endif	/* BCMDRIVER */
 
+
 /*******************************************************************************
  * crc8
  *
@@ -1083,7 +1081,7 @@ bcm_iovar_lencheck(const bcm_iovar_t *vi, void *arg, int len, bool set)
  * ****************************************************************************
  */
 
-STATIC const uint8 crc8_table[256] = {
+static const uint8 crc8_table[256] = {
     0x00, 0xF7, 0xB9, 0x4E, 0x25, 0xD2, 0x9C, 0x6B,
     0x4A, 0xBD, 0xF3, 0x04, 0x6F, 0x98, 0xD6, 0x21,
     0x94, 0x63, 0x2D, 0xDA, 0xB1, 0x46, 0x08, 0xFF,
@@ -1206,7 +1204,7 @@ hndcrc16(
 	return crc;
 }
 
-STATIC const uint32 crc32_table[256] = {
+static const uint32 crc32_table[256] = {
     0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA,
     0x076DC419, 0x706AF48F, 0xE963A535, 0x9E6495A3,
     0x0EDB8832, 0x79DCB8A4, 0xE0D5E91E, 0x97D2D988,
@@ -1442,15 +1440,13 @@ bcm_parse_ordered_tlvs(void *buf, int buflen, uint key)
 	return NULL;
 }
 
-#if defined(WLMSG_PRHDRS) || defined(WLMSG_PRPKT) || defined(WLMSG_ASSOC) || \
-	defined(DHD_DEBUG)
 int
 bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 {
 	int i;
 	char* p = buf;
 	char hexstr[16];
-	int slen = 0;
+	int slen = 0, nlen = 0;
 	uint32 bit;
 	const char* name;
 
@@ -1458,34 +1454,40 @@ bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 		return 0;
 
 	buf[0] = '\0';
-	len -= 1;
 
 	for (i = 0; flags != 0; i++) {
 		bit = bd[i].bit;
 		name = bd[i].name;
-		if (bit == 0 && flags) {
+		if (bit == 0 && flags != 0) {
 			/* print any unnamed bits */
-			sprintf(hexstr, "0x%X", flags);
+			snprintf(hexstr, 16, "0x%X", flags);
 			name = hexstr;
 			flags = 0;	/* exit loop */
 		} else if ((flags & bit) == 0)
 			continue;
-		slen += strlen(name);
-		if (len < slen)
-			break;
-		if (p != buf) p += sprintf(p, " "); /* btwn flag space */
-		strcat(p, name);
-		p += strlen(name);
 		flags &= ~bit;
+		nlen = strlen(name);
+		slen += nlen;
+		/* count btwn flag space */
+		if (flags != 0)
+			slen += 1;
+		/* need NULL char as well */
+		if (len <= slen)
+			break;
+		/* copy NULL char but don't count it */
+		strncpy(p, name, nlen + 1);
+		p += nlen;
+		/* copy btwn flag space and NULL char */
+		if (flags != 0)
+			p += snprintf(p, 2, " ");
 		len -= slen;
-		slen = 1;	/* account for btwn flag space */
 	}
 
 	/* indicate the str was too short */
 	if (flags != 0) {
-		if (len == 0)
-			p--;	/* overwrite last char */
-		p += sprintf(p, ">");
+		if (len < 2)
+			p -= 2 - len;	/* overwrite last char */
+		p += snprintf(p, 2, ">");
 	}
 
 	return (int)(p - buf);
@@ -1500,7 +1502,7 @@ bcm_format_hex(char *str, const void *bytes, int len)
 	const uint8 *src = (const uint8*)bytes;
 
 	for (i = 0; i < len; i++) {
-		p += sprintf(p, "%02X", *src);
+		p += snprintf(p, 3, "%02X", *src);
 		src++;
 	}
 	return (int)(p - str);
@@ -1511,6 +1513,8 @@ void
 prhex(const char *msg, uchar *buf, uint nbytes)
 {
 	char line[128], *p;
+	int len = sizeof(line);
+	int nchar;
 	uint i;
 
 	if (msg && (msg[0] != '\0'))
@@ -1519,12 +1523,20 @@ prhex(const char *msg, uchar *buf, uint nbytes)
 	p = line;
 	for (i = 0; i < nbytes; i++) {
 		if (i % 16 == 0) {
-			p += sprintf(p, "  %04d: ", i);	/* line prefix */
+			nchar = snprintf(p, len, "  %04d: ", i);	/* line prefix */
+			p += nchar;
+			len -= nchar;
 		}
-		p += sprintf(p, "%02x ", buf[i]);
+		if (len > 0) {
+			nchar = snprintf(p, len, "%02x ", buf[i]);
+			p += nchar;
+			len -= nchar;
+		}
+
 		if (i % 16 == 15) {
 			printf("%s\n", line);		/* flush line */
 			p = line;
+			len = sizeof(line);
 		}
 	}
 
@@ -1532,7 +1544,30 @@ prhex(const char *msg, uchar *buf, uint nbytes)
 	if (p != line)
 		printf("%s\n", line);
 }
-#endif 
+
+static const char *crypto_algo_names[] = {
+	"NONE",
+	"WEP1",
+	"TKIP",
+	"WEP128",
+	"AES_CCM",
+	"AES_OCB_MSDU",
+	"AES_OCB_MPDU",
+	"NALG"
+	"UNDEF",
+	"UNDEF",
+	"UNDEF",
+#ifdef BCMWAPI_WPI
+	"WAPI",
+#endif /* BCMWAPI_WPI */
+	"UNDEF"
+};
+
+const char *
+bcm_crypto_algo_name(uint algo)
+{
+	return (algo < ARRAYSIZE(crypto_algo_names)) ? crypto_algo_names[algo] : "ERR";
+}
 
 
 /* Produce a human-readable string for boardrev */
@@ -1620,6 +1655,7 @@ bcm_mkiovar(char *name, char *data, uint datalen, char *buf, uint buflen)
 
 	return len;
 }
+
 
 /* Quarter dBm units to mW
  * Table starts at QDBM_OFFSET, so the first entry is mW for qdBm=153
@@ -1722,6 +1758,7 @@ bcm_bitcount(uint8 *bitmap, uint length)
 	return bitcount;
 }
 
+
 #ifdef BCMDRIVER
 
 /* Initialization of bcmstrbuf structure */
@@ -1800,39 +1837,5 @@ bcm_print_bytes(char *name, const uchar *data, int len)
 	}
 	printf("\n");
 }
-
-/*
- * buffer length needed for wlc_format_ssid
- * 32 SSID chars, max of 4 chars for each SSID char "\xFF", plus NULL.
- */
-
-#if defined(WLTINYDUMP) || defined(WLMSG_INFORM) || defined(WLMSG_ASSOC) || \
-	defined(WLMSG_PRPKT) || defined(WLMSG_WSEC)
-int
-bcm_format_ssid(char* buf, const uchar ssid[], uint ssid_len)
-{
-	uint i, c;
-	char *p = buf;
-	char *endp = buf + SSID_FMT_BUF_LEN;
-
-	if (ssid_len > DOT11_MAX_SSID_LEN) ssid_len = DOT11_MAX_SSID_LEN;
-
-	for (i = 0; i < ssid_len; i++) {
-		c = (uint)ssid[i];
-		if (c == '\\') {
-			*p++ = '\\';
-			*p++ = '\\';
-		} else if (bcm_isprint((uchar)c)) {
-			*p++ = (char)c;
-		} else {
-			p += snprintf(p, (endp - p), "\\x%02X", c);
-		}
-	}
-	*p = '\0';
-	ASSERT(p < endp);
-
-	return (int)(p - buf);
-}
-#endif 
 
 #endif /* BCMDRIVER */

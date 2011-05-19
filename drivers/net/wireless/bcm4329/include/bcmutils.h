@@ -1,9 +1,9 @@
 /*
  * Misc useful os-independent macros and functions.
  *
- * Copyright (C) 1999-2010, Broadcom Corporation
+ * Copyright (C) 1999-2009, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -20,16 +20,12 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmutils.h,v 13.184.4.6.2.1.18.24 2009/12/10 20:19:19 Exp $
+ * $Id: bcmutils.h,v 13.184.4.6.2.1.26.6 2009/11/25 02:44:20 Exp $
  */
 
 
 #ifndef	_bcmutils_h_
 #define	_bcmutils_h_
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 
 #define _BCM_U	0x01	
@@ -123,11 +119,7 @@ struct spktq {
 
 
 
-
 struct ether_addr;
-
-extern int ether_isbcast(const void *ea);
-extern int ether_isnulladdr(const void *ea);
 
 
 
@@ -338,12 +330,8 @@ extern int bcm_iovar_lencheck(const bcm_iovar_t *table, void *arg, int len, bool
 #define BCME_NOT_WME_ASSOCIATION	-34	
 #define BCME_SDIO_ERROR			-35	
 #define BCME_DONGLE_DOWN		-36	
-#define BCME_VERSION			-37	
-#define BCME_TXFAIL			-38	
-#define BCME_RXFAIL			-39	
-#define BCME_NODEVICE			-40	
-#define BCME_UNFINISHED			-41	
-#define BCME_LAST			BCME_UNFINISHED
+#define BCME_VERSION			-37 
+#define BCME_LAST			BCME_VERSION
 
 
 #define BCMERRSTRINGTABLE {		\
@@ -384,11 +372,7 @@ extern int bcm_iovar_lencheck(const bcm_iovar_t *table, void *arg, int len, bool
 	"Not WME Association",		\
 	"SDIO Bus Error",		\
 	"Dongle Not Accessible",	\
-	"Incorrect version",		\
-	"TX Failure",			\
-	"RX Failure",			\
-	"Device Not Present",		\
-	"Command not finished",		\
+	"Incorrect version"	\
 }
 
 #ifndef ABS
@@ -556,10 +540,10 @@ xor_128bit_block(const uint8 *src1, const uint8 *src2, uint8 *dst)
 	    (((uintptr)src1 | (uintptr)src2 | (uintptr)dst) & 3) == 0) {
 		
 		
-		((uint32 *)dst)[0] = ((uint32 *)src1)[0] ^ ((uint32 *)src2)[0];
-		((uint32 *)dst)[1] = ((uint32 *)src1)[1] ^ ((uint32 *)src2)[1];
-		((uint32 *)dst)[2] = ((uint32 *)src1)[2] ^ ((uint32 *)src2)[2];
-		((uint32 *)dst)[3] = ((uint32 *)src1)[3] ^ ((uint32 *)src2)[3];
+		((uint32 *)dst)[0] = ((const uint32 *)src1)[0] ^ ((const uint32 *)src2)[0];
+		((uint32 *)dst)[1] = ((const uint32 *)src1)[1] ^ ((const uint32 *)src2)[1];
+		((uint32 *)dst)[2] = ((const uint32 *)src1)[2] ^ ((const uint32 *)src2)[2];
+		((uint32 *)dst)[3] = ((const uint32 *)src1)[3] ^ ((const uint32 *)src2)[3];
 	} else {
 		
 		int k;
@@ -574,14 +558,12 @@ extern uint8 hndcrc8(uint8 *p, uint nbytes, uint8 crc);
 extern uint16 hndcrc16(uint8 *p, uint nbytes, uint16 crc);
 extern uint32 hndcrc32(uint8 *p, uint nbytes, uint32 crc);
 
-#if defined(DHD_DEBUG) || defined(WLMSG_PRHDRS) || defined(WLMSG_PRPKT) || \
-	defined(WLMSG_ASSOC)
 extern int bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len);
 extern int bcm_format_hex(char *str, const void *bytes, int len);
-extern void prhex(const char *msg, uchar *buf, uint len);
-#endif 
+extern const char *bcm_crypto_algo_name(uint algo);
 extern char *bcm_brev_str(uint32 brev, char *buf);
 extern void printbig(char *buf);
+extern void prhex(const char *msg, uchar *buf, uint len);
 
 
 extern bcm_tlv_t *bcm_next_tlv(bcm_tlv_t *elt, int *buflen);
@@ -622,16 +604,5 @@ extern uint bcmdumpfields(bcmutl_rdreg_rtn func_ptr, void *arg0, uint arg1, stru
 extern uint bcm_mkiovar(char *name, char *data, uint datalen, char *buf, uint len);
 extern uint bcm_bitcount(uint8 *bitmap, uint bytelength);
 
-#if defined(WLTINYDUMP) || defined(WLMSG_INFORM) || defined(WLMSG_ASSOC) || \
-	defined(WLMSG_PRPKT) || defined(WLMSG_WSEC)
-extern int bcm_format_ssid(char* buf, const uchar ssid[], uint ssid_len);
-#endif 
-
-
-#define SSID_FMT_BUF_LEN	((4 * DOT11_MAX_SSID_LEN) + 1)
-
-#ifdef __cplusplus
-	}
-#endif
 
 #endif	

@@ -6,7 +6,7 @@
  *
  * Copyright (C) 1999-2009, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -24,7 +24,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_proto.h,v 1.2.82.1.4.1.16.6 2009/06/17 01:01:55 Exp $
+ * $Id: dhd_proto.h,v 1.2.82.1.4.1.24.4 2009/06/11 19:20:04 Exp $
  */
 
 #ifndef _dhd_proto_h_
@@ -34,7 +34,7 @@
 #include <wlioctl.h>
 
 #ifndef IOCTL_RESP_TIMEOUT
-#define IOCTL_RESP_TIMEOUT  2000 /* In milli second */
+#define IOCTL_RESP_TIMEOUT  1000 /* In milli second */
 #endif
 
 /*
@@ -55,15 +55,13 @@ extern int dhd_prot_init(dhd_pub_t *dhdp);
 /* Stop protocol: sync w/dongle state. */
 extern void dhd_prot_stop(dhd_pub_t *dhdp);
 
-extern bool dhd_proto_fcinfo(dhd_pub_t *dhd, void *pktbuf, uint8 *fcbits);
-
 /* Add any protocol-specific data header.
  * Caller must reserve prot_hdrlen prepend space.
  */
 extern void dhd_prot_hdrpush(dhd_pub_t *, int ifidx, void *txp);
 
 /* Remove any protocol-specific data header. */
-extern int dhd_prot_hdrpull(dhd_pub_t *, int *ifidx, void *rxp);
+extern int dhd_prot_hdrpull(dhd_pub_t *, uint *ifidx, void *rxp);
 
 /* Use protocol to issue ioctl to dongle */
 extern int dhd_prot_ioctl(dhd_pub_t *dhd, int ifidx, wl_ioctl_t * ioc, void * buf, int len);
@@ -81,6 +79,7 @@ extern void dhd_prot_dstats(dhd_pub_t *dhdp);
 extern int dhd_ioctl(dhd_pub_t * dhd_pub, dhd_ioctl_t *ioc, void * buf, uint buflen);
 
 extern int dhd_preinit_ioctls(dhd_pub_t *dhd);
+
 
 /********************************
  * For version-string expansion *

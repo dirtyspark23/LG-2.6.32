@@ -3,7 +3,7 @@
  *
  * Copyright (C) 1999-2009, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: linux_osl.h,v 13.131.30.5 2009/10/27 04:42:45 Exp $
+ * $Id: linux_osl.h,v 13.131.44.1 2008/12/02 21:02:37 Exp $
  */
 
 
@@ -108,7 +108,7 @@ extern uint osl_malloc_failed(osl_t *osh);
 
 
 #define	DMA_CONSISTENT_ALIGN	PAGE_SIZE
-#define	DMA_ALLOC_CONSISTENT(osh, size, pap, dmah, alignbits) \
+#define	DMA_ALLOC_CONSISTENT(osh, size, pap, dmah) \
 	osl_dma_alloc_consistent((osh), (size), (pap))
 #define	DMA_FREE_CONSISTENT(osh, va, size, pa, dmah) \
 	osl_dma_free_consistent((osh), (void*)(va), (size), (pa))
@@ -221,7 +221,7 @@ extern void osl_dma_unmap(osl_t *osh, uint pa, uint size, int direction);
 #if !defined(CONFIG_MMC_MSM7X00A)
 #define	REG_MAP(pa, size)	ioremap_nocache((unsigned long)(pa), (unsigned long)(size))
 #else
-#define REG_MAP(pa, size)       (void *)(0)
+#define	REG_MAP(pa, size)	(void *)(0)
 #endif 
 #define	REG_UNMAP(va)		iounmap((va))
 
@@ -249,12 +249,6 @@ extern void osl_dma_unmap(osl_t *osh, uint pa, uint size, int direction);
 #define	PKTDUP(osh, skb)		osl_pktdup((osh), (skb))
 #define	PKTTAG(skb)			((void*)(((struct sk_buff*)(skb))->cb))
 #define PKTALLOCED(osh)			((osl_pubinfo_t *)(osh))->pktalloced
-#define PKTSETPOOL(osh, skb, x, y)	do {} while (0)
-#define PKTPOOL(osh, skb)		FALSE
-#define PKTPOOLLEN(osh, pktp)		(0)
-#define PKTPOOLAVAIL(osh, pktp)		(0)
-#define PKTPOOLADD(osh, pktp, p)	BCME_ERROR
-#define PKTPOOLGET(osh, pktp)		NULL
 #define PKTLIST_DUMP(osh, buf)
 
 extern void *osl_pktget(osl_t *osh, uint len);

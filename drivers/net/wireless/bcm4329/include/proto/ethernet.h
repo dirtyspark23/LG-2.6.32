@@ -3,7 +3,7 @@
  *
  * Copyright (C) 1999-2009, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: ethernet.h,v 9.45.56.3 2009/08/15 00:51:27 Exp $
+ * $Id: ethernet.h,v 9.45.74.3 2009/11/25 03:14:29 Exp $
  */
 
 
@@ -67,6 +67,9 @@
 #define ETHER_TYPE_8021Q	0x8100		
 #define	ETHER_TYPE_BRCM		0x886c		
 #define	ETHER_TYPE_802_1X	0x888e		
+#ifdef BCMWAPI_WPI
+#define ETHER_TYPE_WAI		0x88b4		
+#endif 
 #ifdef BCMWPA2
 #define	ETHER_TYPE_802_1X_PREAUTH 0x88c7	
 #endif
@@ -124,21 +127,23 @@ BWL_PRE_PACKED_STRUCT struct	ether_addr {
 		((short*)d)[2] = ((short*)s)[2]; }
 
 
+#define ETHER_ISBCAST(ea) ((((uint8 *)(ea))[0] &		\
+			    ((uint8 *)(ea))[1] &		\
+			    ((uint8 *)(ea))[2] &		\
+			    ((uint8 *)(ea))[3] &		\
+			    ((uint8 *)(ea))[4] &		\
+			    ((uint8 *)(ea))[5]) == 0xff)
+
 static const struct ether_addr ether_bcast = {{255, 255, 255, 255, 255, 255}};
 static const struct ether_addr ether_null = {{0, 0, 0, 0, 0, 0}};
 
-#define ETHER_ISBCAST(ea)	((((uint8 *)(ea))[0] &		\
-	                          ((uint8 *)(ea))[1] &		\
-				  ((uint8 *)(ea))[2] &		\
-				  ((uint8 *)(ea))[3] &		\
-				  ((uint8 *)(ea))[4] &		\
-				  ((uint8 *)(ea))[5]) == 0xff)
-#define ETHER_ISNULLADDR(ea)	((((uint8 *)(ea))[0] |		\
-				  ((uint8 *)(ea))[1] |		\
-				  ((uint8 *)(ea))[2] |		\
-				  ((uint8 *)(ea))[3] |		\
-				  ((uint8 *)(ea))[4] |		\
-				  ((uint8 *)(ea))[5]) == 0)
+
+#define ETHER_ISNULLADDR(ea) ((((uint8 *)(ea))[0] |		\
+			    ((uint8 *)(ea))[1] |		\
+			    ((uint8 *)(ea))[2] |		\
+			    ((uint8 *)(ea))[3] |		\
+			    ((uint8 *)(ea))[4] |		\
+			    ((uint8 *)(ea))[5]) == 0)
 
 
 

@@ -4,9 +4,9 @@
  * Provides type definitions and function prototypes used to link the
  * DHD OS, bus, and protocol modules.
  *
- * Copyright (C) 1999-2010, Broadcom Corporation
+ * Copyright (C) 1999-2009, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -24,7 +24,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd.h,v 1.32.4.7.2.4.14.29 2010/02/23 06:58:21 Exp $
+ * $Id: dhd.h,v 1.32.4.7.2.4.28.37 2009/10/30 22:43:52 Exp $
  */
 
 /****************
@@ -47,6 +47,10 @@
 #include <asm/uaccess.h>
 #include <asm/unaligned.h>
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_HAS_WAKELOCK)
+#include <linux/wakelock.h>
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined (CONFIG_HAS_WAKELOCK) */
+
 /* The kernel threading is sdio-specific */
 #else /* LINUX */
 #define ENOMEM		1
@@ -59,6 +63,10 @@
 
 #include <wlioctl.h>
 
+#ifdef NDIS60
+#include <wdf.h>
+#include <WdfMiniport.h>
+#endif /* NDIS60 */
 
 /* Forward decls */
 struct dhd_bus;
@@ -81,9 +89,6 @@ enum dhd_bus_wake_state {
 	WAKE_LOCK_TMOUT,
 	WAKE_LOCK_WATCHDOG,
 	WAKE_LOCK_LINK_DOWN_TMOUT,
-	WAKE_LOCK_SOFTAP_SET,
-	WAKE_LOCK_SOFTAP_STOP,
-	WAKE_LOCK_SOFTAP_START,
 	WAKE_LOCK_MAX
 };
 enum dhd_prealloc_index {
@@ -132,11 +137,9 @@ typedef struct dhd_pub {
 	ulong rx_ctlerrs;	/* Errors in processing rx control frames */
 	ulong rx_dropped;	/* Packets dropped locally (no memory) */
 	ulong rx_flushed;  /* Packets flushed due to unscheduled sendup thread */
-	ulong wd_dpc_sched;   /* Number of times dhd dpc scheduled by watchdog timer */
 
 	ulong rx_readahead_cnt;	/* Number of packets where header read-ahead was used. */
 	ulong tx_realloc;	/* Number of tx packets we had to realloc for headroom */
-	ulong fc_packets;       /* Number of flow control pkts recvd */
 
 	/* Last error return */
 	int bcmerror;
@@ -146,7 +149,23 @@ typedef struct dhd_pub {
 	int dongle_error;
 
 	uint8 country_code[WLC_CNTRY_BUF_SZ];
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_HAS_WAKELOCK)
+	struct wake_lock wakelock[WAKE_LOCK_MAX];
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined (CONFIG_HAS_WAKELOCK) */
+
 } dhd_pub_t;
+
+#ifdef NDIS60
+
+typedef struct _wdf_device_info {
+	dhd_pub_t *dhd;
+} wdf_device_info_t;
+
+WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(wdf_device_info_t, dhd_get_wdf_device_info)
+
+
+#endif /* NDIS60 */
 
 	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP)
 
@@ -154,7 +173,7 @@ typedef struct dhd_pub {
 	#define _DHD_PM_RESUME_WAIT(a, b) do {\
 			int retry = 0; \
 			while (dhd_mmc_suspend && retry++ != b) { \
-				wait_event_interruptible_timeout(a, FALSE, HZ/100); \
+				wait_event_timeout(a, FALSE, HZ/100); \
 			} \
 		} 	while (0)
 	#define DHD_PM_RESUME_WAIT(a) 			_DHD_PM_RESUME_WAIT(a, 30)
@@ -166,7 +185,7 @@ typedef struct dhd_pub {
 	#define SPINWAIT_SLEEP(a, exp, us) do { \
 		uint countdown = (us) + 9; \
 		while ((exp) && (countdown >= 10)) { \
-			wait_event_interruptible_timeout(a, FALSE, HZ/100); \
+			wait_event_timeout(a, FALSE, HZ/100); \
 			countdown -= 10; \
 		} \
 	} while (0)
@@ -189,19 +208,46 @@ typedef struct dhd_pub {
 	} while (0)
 
 	#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_PM_SLEEP) */
-#define DHD_IF_VIF	0x01	/* Virtual IF (Hidden from user) */
 
-/* Wakelock Functions */
-extern int dhd_os_wake_lock(dhd_pub_t *pub);
-extern int dhd_os_wake_unlock(dhd_pub_t *pub);
-extern int dhd_os_wake_lock_timeout(dhd_pub_t *pub);
-extern int dhd_os_wake_lock_timeout_enable(dhd_pub_t *pub);
+
+inline static void WAKE_LOCK_INIT(dhd_pub_t * dhdp, int index, char * y)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_HAS_WAKELOCK)
+	wake_lock_init(&dhdp->wakelock[index], WAKE_LOCK_SUSPEND, y);
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined (CONFIG_HAS_WAKELOCK) */
+}
+
+inline static void WAKE_LOCK(dhd_pub_t * dhdp, int index)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_HAS_WAKELOCK)
+	wake_lock(&dhdp->wakelock[index]);
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined (CONFIG_HAS_WAKELOCK) */
+}
+
+inline static void WAKE_UNLOCK(dhd_pub_t * dhdp, int index)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_HAS_WAKELOCK)
+	wake_unlock(&dhdp->wakelock[index]);
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined (CONFIG_HAS_WAKELOCK) */
+}
+
+inline static void WAKE_LOCK_TIMEOUT(dhd_pub_t * dhdp, int index, long time)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_HAS_WAKELOCK)
+	wake_lock_timeout(&dhdp->wakelock[index], time);
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined (CONFIG_HAS_WAKELOCK) */
+}
+
+inline static void WAKE_LOCK_DESTROY(dhd_pub_t * dhdp, int index)
+{
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined(CONFIG_HAS_WAKELOCK)
+	wake_lock_destroy(&dhdp->wakelock[index]);
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && defined (CONFIG_HAS_WAKELOCK) */
+}
 
 typedef struct dhd_if_event {
 	uint8 ifidx;
 	uint8 action;
-	uint8 flags;
-	uint8 bssidx;
 } dhd_if_event_t;
 
 /*
@@ -225,8 +271,6 @@ extern void dhd_detach(dhd_pub_t *dhdp);
 
 /* Indication from bus module to change flow-control state */
 extern void dhd_txflowcontrol(dhd_pub_t *dhdp, int ifidx, bool on);
-
-extern bool dhd_prec_enq(dhd_pub_t *dhdp, struct pktq *q, void *pkt, int prec);
 
 /* Receive frame for delivery to OS.  Callee disposes of rxp. */
 extern void dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *rxp, int numpkt);
@@ -261,15 +305,17 @@ extern void dhd_os_sdunlock_txq(dhd_pub_t * pub);
 extern void dhd_os_sdlock_rxq(dhd_pub_t * pub);
 extern void dhd_os_sdunlock_rxq(dhd_pub_t * pub);
 extern void dhd_os_sdlock_sndup_rxq(dhd_pub_t * pub);
+/* LGE_CHANGE_S [yoohoo@lge.com] 2009-12-08, support start/stop */
+#if defined(CONFIG_LGE_BCM432X_PATCH)
+extern void dhd_customer_gpio_wlan_ctrl(int onoff, int irq_detect_ctrl);
+#else /* CONFIG_LGE_BCM432X_PATCH */
 extern void dhd_customer_gpio_wlan_ctrl(int onoff);
+#endif /* CONFIG_LGE_BCM432X_PATCH */
+/* LGE_CHANGE_E [yoohoo@lge.com] 2009-12-08, support start/stop */
 extern void dhd_os_sdunlock_sndup_rxq(dhd_pub_t * pub);
-extern void dhd_os_sdlock_eventq(dhd_pub_t * pub);
-extern void dhd_os_sdunlock_eventq(dhd_pub_t * pub);
 #if defined(OOB_INTR_ONLY)
-extern int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr);
+extern int dhd_customer_oob_irq_map(void);
 #endif /* defined(OOB_INTR_ONLY) */
-extern void dhd_os_sdtxlock(dhd_pub_t * pub);
-extern void dhd_os_sdtxunlock(dhd_pub_t * pub);
 
 int setScheduler(struct task_struct *p, int policy, struct sched_param *param);
 
@@ -284,32 +330,26 @@ extern void dhd_timeout_start(dhd_timeout_t *tmo, uint usec);
 extern int dhd_timeout_expired(dhd_timeout_t *tmo);
 
 extern int dhd_ifname2idx(struct dhd_info *dhd, char *name);
-extern uint8 *dhd_bssidx2bssid(dhd_pub_t *dhd, int idx);
 extern int wl_host_event(struct dhd_info *dhd, int *idx, void *pktdata,
-                         wl_event_msg_t *, void **data_ptr);
+wl_event_msg_t *, void **data_ptr);
 extern void wl_event_to_host_order(wl_event_msg_t * evt);
 
 extern void dhd_common_init(void);
 
-extern int dhd_add_if(struct dhd_info *dhd, int ifidx, void *handle,
-	char *name, uint8 *mac_addr, uint32 flags, uint8 bssidx);
+extern int dhd_add_if(struct dhd_info *dhd, int ifidx, void *handle, char *name, uint8 *mac_addr);
 extern void dhd_del_if(struct dhd_info *dhd, int ifidx);
 
-extern void dhd_vif_add(struct dhd_info *dhd, int ifidx, char * name);
-extern void dhd_vif_del(struct dhd_info *dhd, int ifidx);
-
-extern void dhd_event(struct dhd_info *dhd, char *evpkt, int evlen, int ifidx);
-extern void dhd_vif_sendup(struct dhd_info *dhd, int ifidx, uchar *cp, int len);
-
-
-/* Send packet to dongle via data channel */
+/* Send pakcet to dongle via data channel */
 extern int dhd_sendpkt(dhd_pub_t *dhdp, int ifidx, void *pkt);
 
 /* Send event to host */
+/* send up locally generated event */
+extern void dhd_sendup_event_common(dhd_pub_t *dhdp, wl_event_msg_t *event, void *data);
 extern void dhd_sendup_event(dhd_pub_t *dhdp, wl_event_msg_t *event, void *data);
 extern int dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag);
 extern uint dhd_bus_status(dhd_pub_t *dhdp);
 extern int  dhd_bus_start(dhd_pub_t *dhdp);
+
 
 
 
@@ -319,14 +359,14 @@ typedef enum cust_gpio_modes {
 	WLAN_POWER_ON,
 	WLAN_POWER_OFF
 } cust_gpio_modes_t;
-extern int wl_iw_iscan_set_scan_broadcast_prep(struct net_device *dev, uint flag);
+
+
 /*
  * Insmod parameters for debug/test
  */
 
-/* Watchdog timer interval */
+/* Watchdog timer frequency */
 extern uint dhd_watchdog_ms;
-
 
 /* Use interrupts */
 extern uint dhd_intr;
@@ -358,6 +398,11 @@ extern uint dhd_pktgen_len;
 #define MOD_PARAM_PATHLEN	2048
 extern char fw_path[MOD_PARAM_PATHLEN];
 extern char nv_path[MOD_PARAM_PATHLEN];
+/* LGE_CHANGE_S [yoohoo@lge.com] 2009-04-03, configs */
+#if defined(CONFIG_LGE_BCM432X_PATCH)
+extern char config_path[MOD_PARAM_PATHLEN];
+#endif /* CONFIG_LGE_BCM432X_PATCH */
+/* LGE_CHANGE_E [yoohoo@lge.com] 2009-04-03, configs */
 
 /* For supporting multiple interfaces */
 #define DHD_MAX_IFS	16
@@ -367,8 +412,5 @@ extern char nv_path[MOD_PARAM_PATHLEN];
 #ifdef APSTA_PINGTEST
 #define MAX_GUEST 8
 #endif
-
-extern void dhd_wait_for_event(dhd_pub_t *dhd, bool *lockvar);
-extern void dhd_wait_event_wakeup(dhd_pub_t*dhd);
 
 #endif /* _dhd_h_ */

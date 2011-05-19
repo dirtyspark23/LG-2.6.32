@@ -4,7 +4,7 @@
  *
  * Copyright (C) 1999-2009, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: hndpmu.c,v 1.95.2.17.4.11.2.50 2009/10/26 14:45:51 Exp $
+ * $Id: hndpmu.c,v 1.95.2.17.4.13.4.14 2009/09/14 16:03:39 Exp $
  */
 
 #include <typedefs.h>
@@ -70,7 +70,7 @@ void
 si_sdiod_drive_strength_init(si_t *sih, osl_t *osh, uint32 drivestrength)
 {
 	chipcregs_t *cc;
-	uint origidx, intr_val = 0;
+	uint origidx, intr_val;
 	sdiod_drive_str_t *str_tab = NULL;
 	uint32 str_mask = 0;
 	uint32 str_shift = 0;

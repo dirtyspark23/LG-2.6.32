@@ -1,9 +1,9 @@
 /*
  * DHD Protocol Module for CDC and BDC.
  *
- * Copyright (C) 1999-2010, Broadcom Corporation
+ * Copyright (C) 1999-2009, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_cdc.c,v 1.22.4.2.4.7.2.34 2010/01/21 22:08:34 Exp $
+ * $Id: dhd_cdc.c,v 1.22.4.2.4.8.2.29 2009/10/05 05:54:04 Exp $
  *
  * BDC is like CDC, except it includes a header for data packets to convey
  * packet priority over the bus, and flags (e.g. to indicate checksum status
@@ -41,10 +41,6 @@
 #include <dhd_bus.h>
 #include <dhd_dbg.h>
 
-#ifdef SET_RANDOM_MAC_SOFTAP
-#include <linux/random.h>
-#include <linux/jiffies.h>
-#endif
 
 /* Packet alignment for most efficient SDIO (can change based on platform) */
 #ifndef DHD_SDALIGN
@@ -77,11 +73,8 @@ dhdcdc_msg(dhd_pub_t *dhd)
 {
 	dhd_prot_t *prot = dhd->prot;
 	int len = ltoh32(prot->msg.len) + sizeof(cdc_ioctl_t);
-	int ret;
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
-
-	dhd_os_wake_lock(dhd);
 
 	/* NOTE : cdc->msg.len holds the desired length of the buffer to be
 	 *        returned. Only up to CDC_MAX_MSG_SIZE of this buffer area
@@ -91,9 +84,7 @@ dhdcdc_msg(dhd_pub_t *dhd)
 		len = CDC_MAX_MSG_SIZE;
 
 	/* Send request */
-	ret = dhd_bus_txctl(dhd->bus, (uchar*)&prot->msg, len);
-	dhd_os_wake_unlock(dhd);
-	return ret;
+	return dhd_bus_txctl(dhd->bus, (uchar*)&prot->msg, len);
 }
 
 static int
@@ -127,7 +118,7 @@ dhdcdc_query_ioctl(dhd_pub_t *dhd, int ifidx, uint cmd, void *buf, uint len)
 
 
 	/* Respond "bcmerror" and "bcmerrorstr" with local cache */
-	if (cmd == WLC_GET_VAR && buf)
+	if (cmd == WLC_GET_VAR)
 	{
 		if (!strcmp((char *)buf, "bcmerrorstr"))
 		{
@@ -145,9 +136,9 @@ dhdcdc_query_ioctl(dhd_pub_t *dhd, int ifidx, uint cmd, void *buf, uint len)
 
 	msg->cmd = htol32(cmd);
 	msg->len = htol32(len);
-	msg->flags = (++prot->reqid << CDCF_IOC_ID_SHIFT);
+	flags = (++prot->reqid << CDCF_IOC_ID_SHIFT);
+	msg->flags = htol32(flags);
 	CDC_SET_IF_IDX(msg, ifidx);
-	msg->flags = htol32(msg->flags);
 
 	if (buf)
 		memcpy(prot->buf, buf, len);
@@ -212,9 +203,9 @@ dhdcdc_set_ioctl(dhd_pub_t *dhd, int ifidx, uint cmd, void *buf, uint len)
 
 	msg->cmd = htol32(cmd);
 	msg->len = htol32(len);
-	msg->flags = (++prot->reqid << CDCF_IOC_ID_SHIFT) | CDCF_IOC_SET;
+	flags = (++prot->reqid << CDCF_IOC_ID_SHIFT) | CDCF_IOC_SET;
+	msg->flags |= htol32(flags);
 	CDC_SET_IF_IDX(msg, ifidx);
-	msg->flags |= htol32(msg->flags);
 
 	if (buf)
 		memcpy(prot->buf, buf, len);
@@ -292,6 +283,7 @@ dhd_prot_ioctl(dhd_pub_t *dhd, int ifidx, wl_ioctl_t * ioc, void * buf, int len)
 		ret = 0;
 	else {
 		cdc_ioctl_t *msg = &prot->msg;
+		CDC_SET_IF_IDX(msg, ifidx);
 		ioc->needed = ltoh32(msg->len); /* len == needed when set/query fails from dongle */
 	}
 
@@ -383,31 +375,8 @@ dhd_prot_hdrpush(dhd_pub_t *dhd, int ifidx, void *pktbuf)
 	BDC_SET_IF_IDX(h, ifidx);
 }
 
-
-bool
-dhd_proto_fcinfo(dhd_pub_t *dhd, void *pktbuf, uint8 *fcbits)
-{
-#ifdef BDC
-	struct bdc_header *h;
-
-	if (PKTLEN(dhd->osh, pktbuf) < BDC_HEADER_LEN) {
-		DHD_ERROR(("%s: rx data too short (%d < %d)\n",
-			__FUNCTION__, PKTLEN(dhd->osh, pktbuf), BDC_HEADER_LEN));
-		return BCME_ERROR;
-	}
-
-	h = (struct bdc_header *)PKTDATA(dhd->osh, pktbuf);
-
-	*fcbits = h->priority >> BDC_PRIORITY_FC_SHIFT;
-	if ((h->flags2 & BDC_FLAG2_FC_FLAG) == BDC_FLAG2_FC_FLAG)
-		return TRUE;
-#endif
-	return FALSE;
-}
-
-
 int
-dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf)
+dhd_prot_hdrpull(dhd_pub_t *dhd, uint *ifidx, void *pktbuf)
 {
 #ifdef BDC
 	struct bdc_header *h;
@@ -426,10 +395,9 @@ dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf)
 
 	h = (struct bdc_header *)PKTDATA(dhd->osh, pktbuf);
 
-	if ((*ifidx = BDC_GET_IF_IDX(h)) >= DHD_MAX_IFS) {
-		DHD_ERROR(("%s: rx data ifnum out of range (%d)\n",
-		           __FUNCTION__, *ifidx));
-		return BCME_ERROR;
+	if (ifidx) {
+		*ifidx = (int)BDC_GET_IF_IDX(h);
+		ASSERT(*ifidx < DHD_MAX_IFS);
 	}
 
 	if (((h->flags & BDC_FLAG_VER_MASK) >> BDC_FLAG_VER_SHIFT) != BDC_PROTO_VER) {
@@ -514,158 +482,246 @@ dhd_prot_dstats(dhd_pub_t *dhd)
 	return;
 }
 
-int dhd_set_suspend(int value, dhd_pub_t *dhd)
+/* LGE_CHANGE_S [yoohoo@lge.com] 2009-04-03, configs */
+#if defined(CONFIG_LGE_BCM432X_PATCH)
+#include <linux/fs.h>
+#include <linux/ctype.h>
+
+#if 0
+
+CONFIG FILE FORMAT
+==================
+
+AVAILABLE PARAMETERS
+~~~~~~~~~~~~~~~~~~~~
++====================+=========================================================+
+| VARIABLE NAME      | DESCRIPTION                                             |
++====================+=========================================================+
+| btc_mode           | BTCoexist                                               |
+|                    | 0: disable, 1: enable                                   |
++--------------------+---------------------------------------------------------+
+| country            | Country Code                                            |
+|                    | KR, EU, US or AU ...                                    |
++--------------------+---------------------------------------------------------+
+| vlan_mode          | Specifies the use of 802.1Q Tags (ON, OFF, AUTO).       |
+|                    | 0: off, 1: on, -1: auto                                 |
++--------------------+---------------------------------------------------------+
+| mpc                | Minimum Power Consumption                               |
+|                    | 0: disable, 1: enable                                   |
++--------------------+---------------------------------------------------------+
+| wme                | WME QoS                                                 |
+|                    | 0: disable, 1: enable                                   |
++--------------------+---------------------------------------------------------+
+| wme_apsd           | WME APSD (Advanced Power Save Delivery)                 |
+|                    | 0: disable, 1: enable                                   |
++--------------------+---------------------------------------------------------+
+| wme_qosinfo        | Set APSD parameters on STA.                             |
+|                    | - max_sp_len = number of frames per USP: 0 (all), 2, 4, |
+|                    |   or 6                                                  |
+|                    | - be, bk, vi, and vo = 0 to disable, 1 to enable U-APSD |
+|                    |   per AC                                                |
+|                    |        <max_sp_len> <be> <bk> <vi> <vo>                 |
+|                    | 0x0f =      0         1    1    1    1                  |
+|                    | 0x2f =      2         1    1    1    1                  |
+|                    | 0x4f =      4         1    1    1    1                  |
+|                    | 0x6f =      6         1    1    1    1                  |
+|                    | 0x03 =      0         0    0    1    1                  |
++--------------------+---------------------------------------------------------+
+| wme_auto_trigger   | 0: disable, 1: enable                                   |
++--------------------+---------------------------------------------------------+
+| wme_apsd_trigger   | in msec, 0: disable                                     |
++--------------------+---------------------------------------------------------+
+| roam_off           | 0: roaming on, 1: roaming off                           |
++--------------------+---------------------------------------------------------+
+| roam_scan_period   | in sec                                                  |
++--------------------+---------------------------------------------------------+
+| roam_delta         | in dB                                                   |
++--------------------+---------------------------------------------------------+
+| roam_trigger       | in dBm                                                  |
++--------------------+---------------------------------------------------------+
+| PM                 | Power Saving Mode                                       |
+|                    | 0: off, 1: max, 2: fast                                 |
++--------------------+---------------------------------------------------------+
+| assoc_listen       | The Listen Interval sent in association requests        |
+|                    | number of beacon                                        |
++--------------------+---------------------------------------------------------+
+
+EXAMPLE
+~~~~~~~
+btc_mode=1
+country=AU
+vlan_mode=0
+mpc=1
+wme=1
+wme_apsd=0
+wme_qosinfo=0x00
+wme_auto_trigger=1
+wme_apsd_trigger=0
+roam_off=0
+roam_scan_period=10
+roam_delta=20
+roam_trigger=-70
+PM=2
+assoc_listen=1
+
+#endif
+
+static int dhd_preinit_proc(dhd_pub_t *dhd, int ifidx, char *name, char *value)
 {
-	int power_mode = PM_MAX;
-	wl_pkt_filter_enable_t	enable_parm;
-	char iovbuf[32];
-	int bcn_li_dtim = 3;
-#ifdef CUSTOMER_HW2
-	uint roamvar = 1;
-#endif /* CUSTOMER_HW2 */
+	int var_int;
 
-#define htod32(i) i
+	if (!strcmp(name, "country")) {
+		return dhdcdc_set_ioctl(dhd, ifidx, WLC_SET_COUNTRY,
+				value, WLC_CNTRY_BUF_SZ);
+	} else if (!strcmp(name, "roam_scan_period")) {
+		var_int = (int)simple_strtol(value, NULL, 0);
+		return dhdcdc_set_ioctl(dhd, ifidx, WLC_SET_ROAM_SCAN_PERIOD,
+				&var_int, sizeof(var_int));
+	} else if (!strcmp(name, "roam_delta") || !strcmp(name, "roam_trigger")) {
+		struct {
+			int val;
+			int band;
+		} x;
+		x.val = (int)simple_strtol(value, NULL, 0);
+		x.band = WLC_BAND_AUTO;
+		return dhdcdc_set_ioctl(dhd, ifidx, strcmp(name, "roam_delta") ?
+				WLC_SET_ROAM_TRIGGER : WLC_SET_ROAM_DELTA, &x, sizeof(x));
+	} else if (!strcmp(name, "PM")) {
+		var_int = (int)simple_strtol(value, NULL, 0);
+		return dhdcdc_set_ioctl(dhd, ifidx, WLC_SET_PM,
+				&var_int, sizeof(var_int));
+	} else {
+		uint iovlen;
+		char iovbuf[WLC_IOCTL_SMLEN];
 
-	if (dhd && dhd->up) {
-		dhd_os_proto_block(dhd);
-		if (value) {
-			dhdcdc_set_ioctl(dhd, 0, WLC_SET_PM,
-				(char *)&power_mode, sizeof(power_mode));
-			/* Enable packet filter, only allow unicast packet to send up */
-			enable_parm.id = htod32(100);
-			enable_parm.enable = htod32(1);
-			bcm_mkiovar("pkt_filter_enable", (char *)&enable_parm,
-				sizeof(wl_pkt_filter_enable_t), iovbuf, sizeof(iovbuf));
-			dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
-			/* set bcn_li_dtim */
-			bcm_mkiovar("bcn_li_dtim", (char *)&bcn_li_dtim,
-				4, iovbuf, sizeof(iovbuf));
-			dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
-#ifdef CUSTOMER_HW2
-			/* Disable build-in roaming to allowed ext supplicant to take of romaing */
-			bcm_mkiovar("roam_off", (char *)&roamvar, 4, iovbuf, sizeof(iovbuf));
-			dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
-#endif /* CUSTOMER_HW2 */
-		} else {
-			power_mode = PM_FAST;
-			dhdcdc_set_ioctl(dhd, 0, WLC_SET_PM, (char *)&power_mode,
-				sizeof(power_mode));
-			/* disable pkt filter */
-			enable_parm.id = htod32(100);
-			enable_parm.enable = htod32(0);
-			bcm_mkiovar("pkt_filter_enable", (char *)&enable_parm,
-				sizeof(wl_pkt_filter_enable_t), iovbuf, sizeof(iovbuf));
-			dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
-			/* set bcn_li_dtim */
-			bcn_li_dtim = 0;
-			bcm_mkiovar("bcn_li_dtim", (char *)&bcn_li_dtim,
-				4, iovbuf, sizeof(iovbuf));
-			dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
-#ifdef CUSTOMER_HW2
-			roamvar = 0;
-			bcm_mkiovar("roam_off", (char *)&roamvar, 4, iovbuf, sizeof(iovbuf));
-			dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
-#endif /* CUSTOMER_HW2 */
+		/* wlu_iovar_setint */
+		var_int = (int)simple_strtol(value, NULL, 0);
+
+		/* Setup timeout bcm_timeout from dhd driver 4.217.48 */
+		if(!strcmp(name, "roam_off")) {
+			/* Setup timeout if Beacons are lost to report link down */
+			if (var_int) {
+				uint bcn_timeout = 3;
+				bcm_mkiovar("bcn_timeout", (char *)&bcn_timeout, 4, iovbuf, sizeof(iovbuf));
+				dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
+			}
 		}
-		dhd_os_proto_unblock(dhd);
+		/* Setup timeout bcm_timeout from dhd driver 4.217.48 */
+
+		iovlen = bcm_mkiovar(name, (char *)&var_int, sizeof(var_int),
+				iovbuf, sizeof(iovbuf));
+		return dhdcdc_set_ioctl(dhd, ifidx, WLC_SET_VAR,
+				iovbuf, iovlen);
 	}
 
 	return 0;
 }
 
-#define strtoul(nptr, endptr, base) bcm_strtoul((nptr), (endptr), (base))
-
-/* Convert user's input in hex pattern to byte-size mask */
-static int
-wl_pattern_atoh(char *src, char *dst)
+static int dhd_preinit_config(dhd_pub_t *dhd, int ifidx)
 {
-	int i;
-	if (strncmp(src, "0x", 2) != 0 &&
-	    strncmp(src, "0X", 2) != 0) {
-		printf("Mask invalid format. Needs to start with 0x\n");
-		return -1;
+	mm_segment_t old_fs;
+	struct kstat stat;
+	struct file *fp = NULL;
+	unsigned int len;
+	char *buf = NULL, *p, *name, *value;
+	int ret = 0;
+
+	if (!*config_path)
+		return 0;
+
+	old_fs = get_fs();
+	set_fs(get_ds());
+	if ((ret = vfs_stat(config_path, &stat))) {
+		set_fs(old_fs);
+		printk(KERN_ERR "%s: Failed to get information (%d)\n",
+				config_path, ret);
+		return ret;
 	}
-	src = src + 2; /* Skip past 0x */
-	if (strlen(src) % 2 != 0) {
-		printf("Mask invalid format. Needs to be of even length\n");
-		return -1;
+	set_fs(old_fs);
+
+	if (!(buf = MALLOC(dhd->osh, stat.size + 1))) {
+		printk(KERN_ERR "Failed to allocate memory %llu bytes\n", stat.size);
+		return -ENOMEM;
 	}
-	for (i = 0; *src != '\0'; i++) {
-		char num[3];
-		strncpy(num, src, 2);
-		num[2] = '\0';
-		dst[i] = (uint8)strtoul(num, NULL, 16);
-		src += 2;
+
+	if (!(fp = dhd_os_open_image(config_path)) ||
+		(len = dhd_os_get_image_block(buf, stat.size, fp)) < 0)
+		goto err;
+
+	buf[stat.size] = '\0';
+	for (p = buf; *p; p++) {
+		if (isspace(*p))
+			continue;
+		for (name = p++; *p && !isspace(*p); p++) {
+			if (*p == '=') {
+				*p = '\0';
+				p++;
+				for (value = p; *p && !isspace(*p); p++);
+				*p = '\0';
+				if ((ret = dhd_preinit_proc(dhd, ifidx, name, value)) < 0)
+					printk(KERN_ERR "%s: %s=%s\n",
+							bcmerrorstr(ret), name, value);
+				break;
+			}
+		}
 	}
-	return i;
+	ret = 0;
+
+out:
+	if (fp)
+		dhd_os_close_image(fp);
+	if (buf)
+/* BEGIN: 001936 cosmichigh26@lge.com 2009-11-13 */
+/* MOD 0001936: Modify BCM4325 driver(by MMC Technology) */
+/*		MFREE(dhd->osh, buf, stat.size);	* original */
+		MFREE(dhd->osh, buf, stat.size + 1);
+/* END: 001936 cosmichigh26@lge.com 2009-11-13 */
+	return ret;
+
+err:
+	ret = -1;
+	goto out;
 }
+#endif /* CONFIG_LGE_BCM432X_PATCH */
+/* LGE_CHANGE_E [yoohoo@lge.com] 2009-04-03, configs */
+
+#if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) && defined(CONFIG_BRCM_LGE_WL_PKTFILTER)
+extern int dhdsdio_set_pktfilters(dhd_pub_t *dhd);
+#endif	/* defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) && defined(CONFIG_BRCM_LGE_WL_PKTFILTER) */
 
 int
 dhd_preinit_ioctls(dhd_pub_t *dhd)
 {
 	char eventmask[WL_EVENTING_MASK_LEN];
-	char iovbuf[WL_EVENTING_MASK_LEN + 12];	/*  Room for "event_msgs" + '\0' + bitvec  */
-	int ret;
+	char iovbuf[WLC_IOCTL_SMLEN];	/*  Room for "event_msgs" + '\0' + bitvec  */
 	uint up = 0;
-#ifdef CUSTOMER_HW2
-	uint roamvar = 0;
-#else
+/* LGE_CHANGE_S [yoohoo@lge.com] 2009-08-27, roam_off, PM */
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
 	uint roamvar = 1;
-#endif
 	uint power_mode = PM_FAST;
+#endif /* CONFIG_LGE_BCM432X_PATCH */
+/* LGE_CHANGE_E [yoohoo@lge.com] 2009-08-27, roam_off, PM */
 	uint32 dongle_align = DHD_SDALIGN;
 	uint32 glom = 0;
-
+	int ret;
+/* LGE_CHANGE_S [yoohoo@lge.com] 2009-09-22, bcn_timeout */
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
 	uint bcn_timeout = 3;
-	int arpoe = 1;
-	int arp_ol = 0xf;
-	int scan_assoc_time = 40;
-	int scan_unassoc_time = 80;
-	const char 				*str;
-	wl_pkt_filter_t		pkt_filter;
-	wl_pkt_filter_t		*pkt_filterp;
-	int						buf_len;
-	int						str_len;
-	uint32					mask_size;
-	uint32					pattern_size;
-	char buf[256];
-	uint filter_mode = 1;
-#ifdef SET_RANDOM_MAC_SOFTAP
-	uint rand_mac;
-#endif
-	dhd_os_proto_block(dhd);
+#endif /* CONFIG_LGE_BCM432X_PATCH */
+/* LGE_CHANGE_E [yoohoo@lge.com] 2009-09-22, bcn_timeout */
+
 	/* Get the device MAC address */
 	strcpy(iovbuf, "cur_etheraddr");
 	if ((ret = dhdcdc_query_ioctl(dhd, 0, WLC_GET_VAR, iovbuf, sizeof(iovbuf))) < 0) {
 		DHD_ERROR(("%s: can't get MAC address , error=%d\n", __FUNCTION__, ret));
-		dhd_os_proto_unblock(dhd);
 		return BCME_NOTUP;
 	}
-
 	memcpy(dhd->mac.octet, iovbuf, ETHER_ADDR_LEN);
-
-#ifdef SET_RANDOM_MAC_SOFTAP
-	if (strstr(fw_path, "apsta") != NULL) {
-		srandom32((uint)jiffies);
-		rand_mac = random32();
-		iovbuf[0] |= 0x02;		/* locally administered bit */
-		iovbuf[3] = (unsigned char)rand_mac;
-		iovbuf[4] = (unsigned char)(rand_mac >> 8);
-		iovbuf[5] = (unsigned char)(rand_mac >> 16);
-
-		printk("Broadcom Dongle Host Driver mac=%02x:%02x:%02x:%02x:%02x:%02x\n",
-			 iovbuf[0], iovbuf[1], iovbuf[2], iovbuf[3], iovbuf[4], iovbuf[5]);
-
-		bcm_mkiovar("cur_etheraddr", (void *)iovbuf, ETHER_ADDR_LEN, buf, sizeof(buf));
-		ret = dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, buf, sizeof(buf));
-		if (ret < 0) {
-			DHD_ERROR(("%s: can't set MAC address , error=%d\n", __FUNCTION__, ret));
-		}
-		else {
-			memcpy(dhd->mac.octet, iovbuf, ETHER_ADDR_LEN);
-		}
-	}
-#endif /* SET_RANDOM_MAC_SOFTAP */
+/* LGE_CHANGE_S [yoohoo@lge.com] 2009-04-03, configs */
+#if defined(CONFIG_LGE_BCM432X_PATCH)
+	dhd_preinit_config(dhd, 0);
+#endif /* CONFIG_LGE_BCM432X_PATCH */
+/* LGE_CHANGE_E [yoohoo@lge.com] 2009-04-03, configs */
 
 	/* Set Country code */
 	if (dhd->country_code[0] != 0) {
@@ -675,8 +731,12 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 		}
 	}
 
+/* LGE_CHANGE_S [yoohoo@lge.com] 2009-08-27, already PM setup is configured */
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
 	/* Set PowerSave mode */
 	dhdcdc_set_ioctl(dhd, 0, WLC_SET_PM, (char *)&power_mode, sizeof(power_mode));
+#endif /* CONFIG_LGE_BCM432X_PATCH */
+/* LGE_CHANGE_E [yoohoo@lge.com] 2009-08-27, already PM setup is configured */
 
 	/* Match Host and Dongle rx alignment */
 	bcm_mkiovar("bus:txglomalign", (char *)&dongle_align, 4, iovbuf, sizeof(iovbuf));
@@ -685,24 +745,33 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	/* disable glom option per default */
 	bcm_mkiovar("bus:txglom", (char *)&glom, 4, iovbuf, sizeof(iovbuf));
 	dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
-	/* Setup timeout if Beacons are lost and roam is off to report link down */
+/* LGE_CHANGE_S [yoohoo@lge.com] 2009-09-22, already setting bcn_timeout in dhd_preinit_config */
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
+	/* Setup timeout if Beacons are lost to report link down */
 	if (roamvar) {
 		bcm_mkiovar("bcn_timeout", (char *)&bcn_timeout, 4, iovbuf, sizeof(iovbuf));
 		dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
 	}
+#endif /* CONFIG_LGE_BCM432X_PATCH */
+/* LGE_CHANGE_E [yoohoo@lge.com] 2009-09-22, already setting bcn_timeout in dhd_preinit_config */
 
-	/* Enable/Disable build-in roaming to allowed ext supplicant to take of romaing */
+/* LGE_CHANGE_S [yoohoo@lge.com] 2009-04-08, roam_off */
+#if !defined(CONFIG_LGE_BCM432X_PATCH)
+	/* Disable build-in roaming to allowed ext supplicant to take of romaing */
 	bcm_mkiovar("roam_off", (char *)&roamvar, 4, iovbuf, sizeof(iovbuf));
 	dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
+#endif /* CONFIG_LGE_BCM432X_PATCH */
+/* LGE_CHANGE_E [yoohoo@lge.com] 2009-04-08, roam_off */
 
 	/* Force STA UP */
 	dhdcdc_set_ioctl(dhd, 0, WLC_UP, (char *)&up, sizeof(up));
 
-	/* Setup event_msgs */
+
 	bcm_mkiovar("event_msgs", eventmask, WL_EVENTING_MASK_LEN, iovbuf, sizeof(iovbuf));
 	dhdcdc_query_ioctl(dhd, 0, WLC_GET_VAR, iovbuf, sizeof(iovbuf));
 	bcopy(iovbuf, eventmask, WL_EVENTING_MASK_LEN);
 
+	/* Setup event_msgs */
 	setbit(eventmask, WLC_E_SET_SSID);
 	setbit(eventmask, WLC_E_PRUNE);
 	setbit(eventmask, WLC_E_AUTH);
@@ -725,70 +794,9 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	bcm_mkiovar("event_msgs", eventmask, WL_EVENTING_MASK_LEN, iovbuf, sizeof(iovbuf));
 	dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
 
-	dhdcdc_set_ioctl(dhd, 0, WLC_SET_SCAN_CHANNEL_TIME, (char *)&scan_assoc_time,
-		sizeof(scan_assoc_time));
-	dhdcdc_set_ioctl(dhd, 0, WLC_SET_SCAN_UNASSOC_TIME, (char *)&scan_unassoc_time,
-		sizeof(scan_unassoc_time));
-
-	/* Set ARP offload */
-	bcm_mkiovar("arpoe", (char *)&arpoe, 4, iovbuf, sizeof(iovbuf));
-	dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
-	bcm_mkiovar("arp_ol", (char *)&arp_ol, 4, iovbuf, sizeof(iovbuf));
-	dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
-
-	/* add a default packet filter pattern */
-	str = "pkt_filter_add";
-	str_len = strlen(str);
-	strncpy(buf, str, str_len);
-	buf[ str_len ] = '\0';
-	buf_len = str_len + 1;
-
-	pkt_filterp = (wl_pkt_filter_t *) (buf + str_len + 1);
-
-	/* Parse packet filter id. */
-	pkt_filter.id = htod32(100);
-
-	/* Parse filter polarity. */
-	pkt_filter.negate_match = htod32(0);
-
-	/* Parse filter type. */
-	pkt_filter.type = htod32(0);
-
-	/* Parse pattern filter offset. */
-	pkt_filter.u.pattern.offset = htod32(0);
-
-	/* Parse pattern filter mask. */
-	mask_size =	htod32(wl_pattern_atoh("0xff",
-		(char *) pkt_filterp->u.pattern.mask_and_pattern));
-
-	/* Parse pattern filter pattern. */
-	pattern_size = htod32(wl_pattern_atoh("0x00",
-		(char *) &pkt_filterp->u.pattern.mask_and_pattern[mask_size]));
-
-	if (mask_size != pattern_size) {
-		DHD_ERROR(("Mask and pattern not the same size\n"));
-		dhd_os_proto_unblock(dhd);
-		return -EINVAL;
-	}
-
-	pkt_filter.u.pattern.size_bytes = mask_size;
-	buf_len += WL_PKT_FILTER_FIXED_LEN;
-	buf_len += (WL_PKT_FILTER_PATTERN_FIXED_LEN + 2 * mask_size);
-
-	/* Keep-alive attributes are set in local	variable (keep_alive_pkt), and
-	** then memcpy'ed into buffer (keep_alive_pktp) since there is no
-	** guarantee that the buffer is properly aligned.
-	*/
-	memcpy((char *)pkt_filterp, &pkt_filter,
-		WL_PKT_FILTER_FIXED_LEN + WL_PKT_FILTER_PATTERN_FIXED_LEN);
-
-	dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, buf, buf_len);
-
-	/* set mode to allow pattern */
-	bcm_mkiovar("pkt_filter_mode", (char *)&filter_mode, 4, iovbuf, sizeof(iovbuf));
-	dhdcdc_set_ioctl(dhd, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
-
-	dhd_os_proto_unblock(dhd);
+#if defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) && defined(CONFIG_BRCM_LGE_WL_PKTFILTER)
+	dhdsdio_set_pktfilters(dhd);
+#endif	/* defined(CONFIG_BRCM_LGE_WL_HOSTWAKEUP) && defined(CONFIG_BRCM_LGE_WL_PKTFILTER) */
 	return 0;
 }
 
@@ -812,3 +820,56 @@ dhd_prot_stop(dhd_pub_t *dhd)
 {
 	/* Nothing to do for CDC */
 }
+
+/* LGE_CHANGE_S, [yoohoo@lge.com], 2009-11-19, Use deepsleep instead of dhd_dev_reset when driver start or stop */
+#if defined(CONFIG_LGE_BCM432X_PATCH) && defined(CONFIG_BRCM_USE_DEEPSLEEP)
+extern dhd_pub_t * get_dhd_pub_from_dev(struct net_device *dev);
+int dhd_deep_sleep(struct net_device *dev, int flag)
+{
+	dhd_pub_t *dhd_pub = get_dhd_pub_from_dev(dev);
+    char iovbuf[20] = {0};
+    uint powervar   = 0;
+
+    DHD_TRACE(("%s: Enter Flag -> %d \n", __FUNCTION__, flag));
+	if(dhd_pub == NULL)
+		return 0;
+
+    switch(flag) {
+	case 1: /* DEEPSLEEP ON*/
+		   printk(KERN_INFO "===== [WiFi] DEEP SLEEP ON =====\n");
+	
+		   /* Disable MPC */	
+		   powervar = 0;
+		   bcm_mkiovar("mpc", (char *)&powervar, 4, iovbuf, sizeof(iovbuf));
+		   dhdcdc_set_ioctl(dhd_pub, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
+
+		   /* Enable Deep Sleep */
+		   powervar = 1;
+		   bcm_mkiovar("deepsleep", (char *)&powervar, 4, iovbuf, sizeof(iovbuf));
+		   dhdcdc_set_ioctl(dhd_pub, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
+		   break;
+
+	case 0: /*DEEPSLEEP OFF*/
+		   printk(KERN_INFO "===== [WiFi] DEEP SLEEP OFF =====\n");
+
+		   /* Disable Deep Sleep */	
+		   powervar = 0;
+		   bcm_mkiovar("deepsleep", (char *)&powervar, 4, iovbuf, sizeof(iovbuf));
+		   dhdcdc_set_ioctl(dhd_pub, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
+
+		   /* Enable MPC */
+		   powervar = 1;
+		   bcm_mkiovar("mpc", (char *)&powervar, 4, iovbuf, sizeof(iovbuf));
+		   dhdcdc_set_ioctl(dhd_pub, 0, WLC_SET_VAR, iovbuf, sizeof(iovbuf));
+		   break;
+
+	default: 
+		   printk(KERN_ERR "[%s] Invalid Input Flag (%d)",__FUNCTION__, flag);
+
+    }
+
+    return 0;
+
+}
+#endif /* CONFIG_LGE_BCM432X_PATCH && CONFIG_BRCM_USE_DEEPSLEEP */
+/* LGE_CHANGE_E, [yoohoo@lge.com], 2009-11-19, Use deepsleep instead of dhd_dev_reset when driver start or stop */
